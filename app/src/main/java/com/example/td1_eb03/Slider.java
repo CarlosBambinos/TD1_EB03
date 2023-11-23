@@ -26,4 +26,13 @@ public class Slider extends View {
         super(context, attrs);
 
     };
+
+    public float valueToRatio(currentValue minSlider, maxSlider){
+
+        return outputValue};
+
+    public float ratioToValue(currentValue minSlider, maxSlider){
+
+        return outputValue};
+
 }
