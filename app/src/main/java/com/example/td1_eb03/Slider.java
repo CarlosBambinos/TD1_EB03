@@ -20,9 +20,10 @@ public class Slider extends View {
     public final static int DEFAULT_BAR_COLOR = 20;
 
     public Slider(Context context){
-
+        super(context);
     };
     public Slider(Context context, AttributeSet attrs){
+        super(context, attrs);
 
     };
 }
