@@ -26,6 +26,7 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.util.HashSet;
 import java.util.Set;
 
 public class BTConnectActivity extends AppCompatActivity {
@@ -36,6 +37,7 @@ public class BTConnectActivity extends AppCompatActivity {
 
     private Toolbar mToolBar;
     private Button mScann;
+
     private ListView mPairedList;
     private ListView mDiscoveredList;
     private BroadcastReceiver mBroadcastReceiver;
@@ -44,6 +46,8 @@ public class BTConnectActivity extends AppCompatActivity {
     private BluetoothAdapter mBlueToothAdapter;
     private ArrayAdapter<String> mPairedAdapter;
     private ArrayAdapter<String> mDiscoveredAdapter;
+
+    private Set<String> foundList = new HashSet<String>();
 
     private ProgressBar mProgressBar;
 
@@ -61,6 +65,14 @@ public class BTConnectActivity extends AppCompatActivity {
 
         // installation du listener de bouton scann
         mScann = findViewById(R.id.scan_button);
+
+
+        mScann.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                toggleBtScan();
+            }
+        });
 
             /* TODO 7 : Mettre en place les listeners du bouton
                et des la listView
@@ -82,13 +94,6 @@ public class BTConnectActivity extends AppCompatActivity {
         mBlueToothAdapter = BluetoothAdapter.getDefaultAdapter();
         if (mBlueToothAdapter != null) {
             if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                // TODO: Consider calling
-                //    ActivityCompat#requestPermissions
-                // here to request the missing permissions, and then overriding
-                //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                //                                          int[] grantResults)
-                // to handle the case where the user grants the permission. See the documentation
-                // for ActivityCompat#requestPermissions for more details.
                 return;
             }
             Set<BluetoothDevice> pairedDevices = mBlueToothAdapter.getBondedDevices();
@@ -98,106 +103,74 @@ public class BTConnectActivity extends AppCompatActivity {
                     mPairedAdapter.add(pairedDevice.getName() + "\n" + pairedDevice.getAddress());
                 }
             } else {
-                mPairedAdapter.add("pas de périphérique appairé");
+                mPairedAdapter.add("Pas de périphérique appairé");
             }
 
         }
         mBroadcastReceiver = new BroadcastReceiver() {
+            @SuppressLint("MissingPermission")
             @Override
             public void onReceive(Context context, Intent intent) {
+                switch (intent.getAction()) {
+                    case BluetoothAdapter.ACTION_DISCOVERY_FINISHED:
+                        if (mDiscoveredAdapter.getCount() == 0){
+                            mDiscoveredAdapter.add("aucun périphérique trouvé");
+                        }
+                    mScann.setVisibility(View.GONE);
+                        mProgressBar.setVisibility(View.INVISIBLE);
+                        break;
+                    case BluetoothDevice.ACTION_FOUND:
+                        BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                        if ((device.getBondState() != BluetoothDevice.BOND_BONDED) && (device.getBluetoothClass().getDeviceClass() == RN42_COD)) {
+
+                            if (!foundList.contains(device.getAddress())) {
+                                foundList.add(device.getAddress());
+                                mDiscoveredAdapter.add(device.getName() + "\n" + device.getAddress());
+                            }
+                        }
+                        break;
+                }
 
             }
         };
-
-            /* TODO 1 : instanciation d'un broadcastreceiver (nommé mBroadcastReceiver) + redéfinition
-                de la méthode onReceive.
-                Explication :
-                La méthode onReceive a pour but d'intercepter les 2 signaux BluetoothAdapter.ACTION_DISCOVERY_FINISHED
-                et BluetoothDevice.ACTION_FOUND.
-                Pour BluetoothAdapter.ACTION_DISCOVERY_FINISHED, il faut :
-                 1 - il faut compter les éléments de mDiscoveredAdapter et traiter le cas où rien n'a été trouvé
-                 2 - Désactiver la progressBar
-                Pour BluetoothAdapter.ACTION_DISCOVERY_FINISHED, il faut :
-                 1 - Ajouter le device à la liste mDiscoveredAdapter, uniquement s'il n'est pas déjà dans la liste
-                     des devices associés.
-             */
-
     }
 
-
-
-
-    /* TODO 4 : Après avoir indiqué que la class BTConnectActivity implémentait l'interface
-        View.OnClickListener, redéfinir la méthode onClick.
-        Explication :
-        Cette méthode est unique pour tous les boutons de l'activité et L'activité devenant ainsi le listener de tous
-        les boutons, la méthode onClick est unique : elle doit donc discriminer elle même quel bouton a été appuyé
-        La méthode view.getId() permet de connaitre le bouton à l'origine de l'appel de onClick.
-          - Si l'interface BT est désactivée :
-                1a - il faut l'activer ici (par une intention implicite BluetoothAdapter.ACTION_REQUEST_ENABLE)
-          - Sinon :
-                1a - on appelle ensuite la méthode toggleBtScan() pour activer ou stopper la recherche.
-     */
-
-
-
-
-    /* TODO 3 : implémenter une méthode de bascule entre lancement du scann et arrêt.
-       Explication :
-       Cette méthode appellera btScan. Si le texte d'un bouton vaut Scanner, appeler btScan(START)
-       sinon appeler btScan(STOP)
-    */
-    private void toggleBtScan() {
-    }
-
-    /* TODO 2 :
-        Créez une méthode btScan destinée à lancer une recherche BT ou à la stopper.
-        Explication :
-            1 - Définir une enumeration constante Action pouvant prendre la valeur START ou STOP.
-                Elle sera utilisée comme argument de la fonction.
-            2 - Si l'argument vaut START :
-                 2a - Créer un filtre d'intention pour indiquer au BroadcastManager que notre application
-                      souhaite être prévenue lorsque la recherche BT est terminée (BluetoothAdapter.ACTION_DISCOVERY_FINISHED).
-                      Associer associer à ce filtre l'action à exécuter en cas de réception du message (registerReceiver).
-                      L'action est celle programmée dans la méthode onReceive de notre broadcastReceiver
-                      donc il suffit de fournir la référence vers notre broadcastReceiver.
-                 2b - Idem pour le message BluetoothDevice.ACTION_FOUND
-                 2c - Lancer la découverte (méthode startDiscovery()),
-                 2d - Activer la progressBar et passer le texte du bouton à "Scanner"
-              - Si l'argument vaut STOP :
-                 2a - Stopper la recherche (méthode cancelDiscovery())
-                 2b - Désactiver la progressBar et passer le texte du bouton à "Stopper"
-                 2b - Dissocier le filtre pour chaque action
-
-     */
 
     @SuppressLint("MissingPermission")
-    private void btScan(Action startstop){
-        if(startstop==Action.START){
+    private void btScan(Action startStop) {
+        if (startStop == Action.START) {
             IntentFilter filter = new IntentFilter();
             filter.addAction(BluetoothDevice.ACTION_FOUND);
             filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
-            registerReceiver(mBroadcastReceiver, filter);
+
+             registerReceiver(mBroadcastReceiver, filter);
             mBroadcastRegistered = true;
+
             mBlueToothAdapter.startDiscovery();
 
-        }else{
-            unregisterReceiver(mBroadcastReceiver);
-            mBroadcastRegistered = false;
+            mProgressBar.setVisibility(View.VISIBLE);
+            mScann.setText("Stopper");
+        } else if (startStop == Action.STOP) {
+
             mBlueToothAdapter.cancelDiscovery();
+
+            if (mBroadcastRegistered) {
+                unregisterReceiver(mBroadcastReceiver);
+                mBroadcastRegistered = false;
+            }
+            mProgressBar.setVisibility(View.GONE);
+            mScann.setText("Scanner");
         }
     }
 
-    /* TODO 5 :
-        L'intention d'activation du BT peut renvoyer un RESULT_OK ou un refus d'activation
-        qu'il faut traiter ici.
-        Explication :
-        - Si l'utilisateur a accepté :
-            1a - on lance ou on stoppe le scanne par toggleBtScan().
-        - Sinon,
-            1a - on affiche un toast et c'est tout.
 
-     */
+    private void toggleBtScan() {
+        if (mScann.getText().toString().equalsIgnoreCase("Scanner")) {
+            btScan(Action.START);
+        } else {
+            btScan(Action.STOP);
+        }
+    }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {

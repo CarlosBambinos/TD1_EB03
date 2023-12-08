@@ -11,6 +11,7 @@ import androidx.core.content.ContextCompat;
 
 import android.bluetooth.BluetoothAdapter;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.util.Log;
@@ -85,19 +86,44 @@ public class MainActivity extends AppCompatActivity {
         return true;
     }
 
+    ActivityResultLauncher<Intent> enableBtLauncher = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            result -> {
+                if (result.getResultCode() == RESULT_OK) {
+                    // Bluetooth a été activé
+                    startBtConnectActivity();
+                } else {
+                    // L'utilisateur a refusé d'activer le Bluetooth
+                    Toast.makeText(this, "Le Bluetooth est nécessaire pour cette fonctionnalité", Toast.LENGTH_SHORT).show();
+                }
+            }
+    );
+
     @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
         int menuItem = item.getItemId();
-        switch(menuItem){
-            case R.id.connect :
-                verifyBtPermission();
-                Toast.makeText(this, "Hello", Toast.LENGTH_LONG).show();
-                break;
-
+        if (menuItem == R.id.connect) {
+            BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+            if (bluetoothAdapter == null) {
+                Toast.makeText(this, "Bluetooth non supporté sur cet appareil", Toast.LENGTH_LONG).show();
+            } else if (!bluetoothAdapter.isEnabled()) {
+                Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+                enableBtLauncher.launch(enableBtIntent);
+            } else {
+                startBtConnectActivity();
+            }
+            return true;
         }
-
         return super.onOptionsItemSelected(item);
     }
+
+    private void startBtConnectActivity() {
+        verifyBtPermission();
+        Toast.makeText(this, "Bluetooth menu", Toast.LENGTH_LONG).show();
+        Intent intent = new Intent(this, BTConnectActivity.class);
+        startActivity(intent);
+    }
+
 
     private AlertDialog showDialog(String title,
                                    String message,
